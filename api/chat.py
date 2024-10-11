@@ -79,12 +79,42 @@ def ask_question(question, session_id):
     # docs = store.as_retriever().invoke(condensed_question)
     current_app.logger.debug("Retrieved %s documents", len(docs))
     for doc in docs:
-        doc_source = doc.metadata['_source']
-        doc_source['body'] = doc.page_content
+        doc_source = {
+            'name': doc.metadata.get('_source', {}).get('name', 'Unknown'),
+            'page_content': doc.page_content,
+            'url': doc.metadata.get('_source', {}).get('webUrl', ''),
+            'category': doc.metadata.get('_source', {}).get('category', 'sharepoint'),
+            'updated_at': doc.metadata.get('_source', {}).get('updated_at', None)
+        }
         current_app.logger.debug(
-            "Retrieved document passage from: %s", doc_source.get('name', 'Unknown')
+            "Retrieved document passage from: %s", doc_source['name']
         )
         yield f"data: {SOURCE_TAG} {json.dumps(doc_source)}\n\n"
+
+    # for doc in docs:
+    #     doc_source = {
+    #         'content': doc.page_content,
+    #         'summary': doc.page_content[:100] + '...',  # Create a brief summary
+    #         'name': doc.metadata.get('_source', {}).get('name', 'Unknown'),
+    #         'url': doc.metadata.get('_source', {}).get('webUrl', ''),
+    #         'created_on': doc.metadata.get('_source', {}).get('created_on', ''),
+    #         'updated_at': doc.metadata.get('_source', {}).get('updated_at', ''),
+    #         'category': doc.metadata.get('_source', {}).get('category', 'sharepoint'),
+    #         '_run_ml_inference': False,  # Dummy value
+    #         'rolePermissions': []  # Dummy value
+    #     }
+    #     current_app.logger.debug(
+    #         "Retrieved document passage from: %s", doc_source['name']
+    #     )
+    #     yield f"data: {SOURCE_TAG} {json.dumps(doc_source)}\n\n"
+
+    # for doc in docs:
+    #     doc_source = doc.metadata['_source']
+    #     doc_source['body'] = doc.page_content
+    #     current_app.logger.debug(
+    #         "Retrieved document passage from: %s", doc_source.get('name', 'Unknown')
+    #     )
+    #     yield f"data: {SOURCE_TAG} {json.dumps(doc_source)}\n\n"
 
     qa_prompt = render_template(
         "rag_prompt.txt",
