@@ -16,7 +16,7 @@ LLM_TYPE = os.getenv("LLM_TYPE", "openai")
 
 config = {
     "cache": {
-		"mode": "semantic",
+		"mode": "simple",
 	},
     "retry" : {
 		"attempts": 3
@@ -25,7 +25,6 @@ config = {
 
 portkey_headers = createHeaders(api_key= os.getenv("PORTKEY_API_KEY"),
                                 provider="openai",
-                                config=config,
                                 metadata={"_user": "mx2"},
                                 )
 
