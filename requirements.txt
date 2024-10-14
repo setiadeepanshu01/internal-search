@@ -15,6 +15,9 @@ python-dotenv
 # OpenAI dependencies
 openai
 
+# Portkey dependencies
+portkey_ai
+
 # Vertex AI dependencies
 # google-cloud-aiplatform
 grpcio-status
