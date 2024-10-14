@@ -48,9 +48,9 @@ const App = () => {
 
   const suggestedQueries = [
     'Who are the radiology experts in Tampa?',
-    'What is our work from home policy?',
-    'What job openings do we have?',
-    'How does compensation work?',
+    'Who are the accident reconstruction experts in Atlanta?',
+    'Do we have any experts on standard care practices for trucking cases?',
+    'Find an expert in Florida that discusses a significant lower back injury even with limited impact and property damage',
   ]
 
   return (
@@ -73,7 +73,7 @@ const App = () => {
               {suggestedQueries.map((query) => (
                 <button
                   key={query}
-                  className="hover:-translate-y-1 hover:shadow-lg hover:bg-zinc-300 transition-transform h-12 px-4 py-2 bg-zinc-200 rounded-md shadow flex items-center text-zinc-700"
+                  className="hover:-translate-y-1 hover:shadow-lg hover:bg-zinc-300 transition-transform h-12 px-4 py-2 bg-zinc-200 rounded-md shadow flex items-center text-zinc-700 text-left"
                   onClick={(e) => {
                     e.preventDefault()
                     setSearchQuery(query)

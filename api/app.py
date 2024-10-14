@@ -8,11 +8,23 @@ import sys
 app = Flask(__name__, static_folder="../frontend/build", static_url_path="/")
 CORS(app)
 
+AUTH_USERNAME = os.environ.get('AUTH_USERNAME')
+AUTH_PASSWORD = os.environ.get('AUTH_PASSWORD')
 
 @app.route("/")
 def api_index():
     return app.send_static_file("index.html")
 
+@app.route("/api/verify-credentials", methods=["POST"])
+def verify_credentials():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    if username == AUTH_USERNAME and password == AUTH_PASSWORD:
+        return jsonify({"authenticated": True}), 200
+    else:
+        return jsonify({"authenticated": False}), 401
 
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
