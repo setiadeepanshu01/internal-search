@@ -47,10 +47,10 @@ const App = () => {
   }
 
   const suggestedQueries = [
-    'Who are the radiology experts in Tampa?',
-    'Who are the accident reconstruction experts in Atlanta?',
-    'Do we have any experts on standard care practices for trucking cases?',
-    'Find an expert in Florida that discusses a significant lower back injury even with limited impact and property damage',
+    'Has Doctor Richard Strain ever claimed that a herniation is a permanent injury?',
+    'Has Dr. Ying Lu discussed delta-v force?',
+    'What are the common questions asked in defense cross-examination of Dr. Amir Ahmadian?',
+    'Has Nicole Bonaparte testimony ever been stricken by a court?',
   ]
 
   return (
