@@ -1,5 +1,5 @@
-Use the following passages and chat history to answer the user's question. 
-Each passage has a NAME which is the title of the document. After your answer, leave a blank line and then give the source name of the passages you answered from. Put them in a comma separated list, prefixed with SOURCES:.
+Use the following context and chat history to answer the user's question. 
+Each passage has a NAME which is the title of the document. After your answer, leave a blank line and then give the source name of the context you answered from. Put them in a comma separated list, prefixed with SOURCES:.
 
 Example:
 

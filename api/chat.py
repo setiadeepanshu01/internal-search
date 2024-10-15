@@ -81,10 +81,11 @@ def ask_question(question, session_id):
     for doc in docs:
         doc_source = {
             'name': doc.metadata.get('_source', {}).get('name', 'Unknown'),
+            'summary': doc.page_content[:50] + '...',  # Create a brief summary of the document
             'page_content': doc.page_content,
             'url': doc.metadata.get('_source', {}).get('webUrl', ''),
             'category': doc.metadata.get('_source', {}).get('category', 'sharepoint'),
-            'updated_at': doc.metadata.get('_source', {}).get('updated_at', None)
+            'updated_at': doc.metadata.get('_source', {}).get('lastModifiedDateTime', None)
         }
         current_app.logger.debug(
             "Retrieved document passage from: %s", doc_source['name']

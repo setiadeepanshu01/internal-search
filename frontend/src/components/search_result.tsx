@@ -9,6 +9,36 @@ interface SearchResultProps extends SourceType {
 
 const TITLE_HEIGHT = 59
 
+const cleanAndTruncateSummary = (summary: string[], maxWords: number): string[] => {
+  const cleanText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '') // Remove non-alphanumeric characters except spaces
+      .replace(/\d+/g, '')     // Remove numbers
+      .replace(/[_\-]+/g, '')  // Remove underscores and dashes
+      .replace(/\s+/g, ' ')    // Replace multiple spaces with a single space
+      .trim();
+  };
+  const capitalizeFirstLetter = (text: string): string => {
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  };
+
+  let totalWords = 0;
+  return summary.reduce((acc, text) => {
+    if (totalWords < maxWords) {
+      const cleanedText = cleanText(text);
+      const words = cleanedText.split(' ');
+      const remainingWords = maxWords - totalWords;
+      const truncatedWords = words.slice(0, remainingWords);
+      totalWords += truncatedWords.length;
+      if (truncatedWords.length > 0) {
+        acc.push(capitalizeFirstLetter(truncatedWords.join(' ')));
+      }
+    }
+    return acc;
+  }, [] as string[]);
+};
+
 export const SearchResult: React.FC<SearchResultProps> = ({
   name,
   icon,
@@ -47,7 +77,7 @@ export const SearchResult: React.FC<SearchResultProps> = ({
           ref={ref}
         >
           <SourceIcon
-            className="bg-white rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs"
+            className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs"
             icon={icon}
           />
           <div className="inline-flex gap-4 justify-between overflow-hidden">
@@ -60,7 +90,7 @@ export const SearchResult: React.FC<SearchResultProps> = ({
               }`}
             />
           </div>
-          <span className="bg-white rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs">
+          <span className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs">
             URL
           </span>
           <a
@@ -71,9 +101,9 @@ export const SearchResult: React.FC<SearchResultProps> = ({
           >
             {url}
           </a>
-          {summary?.map((text, index) => (
+          {cleanAndTruncateSummary(summary, 150).map((text, index) => (
             <React.Fragment key={index}>
-              <span className="bg-white rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs">
+              <span className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs">
                 Snippet
               </span>
               <p className="text-sm mb-2 overflow-ellipsis text-black">
@@ -85,7 +115,7 @@ export const SearchResult: React.FC<SearchResultProps> = ({
       </div>
       {updated_at && (
         <span className="self-end mt-1 text-zinc-400 text-xs tracking-tight font-medium uppercase">
-          {`UPDATED ${updatedAtDate.toLocaleDateString('common', {
+          {`LAST UPDATED ${updatedAtDate.toLocaleDateString('common', {
             month: 'short',
           })} ${updatedAtDate.toLocaleDateString('common', {
             day: 'numeric',
