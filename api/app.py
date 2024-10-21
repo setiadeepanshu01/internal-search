@@ -4,10 +4,13 @@ from uuid import uuid4
 from chat import ask_question
 import os
 import sys
+import jwt
+import datetime
 
 app = Flask(__name__, static_folder="../frontend/build", static_url_path="/")
 CORS(app)
 
+SECRET_KEY = os.environ.get('SECRET_KEY')
 AUTH_USERNAME = os.environ.get('AUTH_USERNAME')
 AUTH_PASSWORD = os.environ.get('AUTH_PASSWORD')
 
@@ -22,7 +25,11 @@ def verify_credentials():
     password = data.get('password')
     
     if username == AUTH_USERNAME and password == AUTH_PASSWORD:
-        return jsonify({"authenticated": True}), 200
+        token = jwt.encode({
+            'user': username,
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+        }, SECRET_KEY, algorithm="HS256")
+        return jsonify({"authenticated": True, "token": token}), 200
     else:
         return jsonify({"authenticated": False}), 401
 

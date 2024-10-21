@@ -1,6 +1,6 @@
 from langchain_elasticsearch import ElasticsearchStore, BM25Strategy
 from langchain_elasticsearch import ElasticsearchRetriever
-from llm_integrations import get_llm
+from llm_integrations import get_llm, init_openai_config_chat
 from elasticsearch_client import (
     elasticsearch_client,
     get_elasticsearch_chat_message_history,
@@ -44,6 +44,13 @@ def custom_mapper(hit: Dict[str, Any]) -> Document:
         metadata={"text_content": content},
     )
 
+def generate_doc_summary(page_content: str) -> str:
+    prompt = render_template(
+        "generate_doc_summary_prompt.txt",
+        page_content=page_content,
+    )
+    return init_openai_config_chat(temperature=0).invoke(prompt).content
+
 @stream_with_context
 def ask_question(question, session_id):
     yield f"data: {SESSION_ID_TAG} {session_id}\n\n"
@@ -82,7 +89,7 @@ def ask_question(question, session_id):
         doc_source = {
             'name': doc.metadata.get('_source', {}).get('name', 'Unknown'),
             'summary': doc.page_content[:50] + '...',  # Create a brief summary of the document
-            'page_content': doc.page_content,
+            'page_content': generate_doc_summary(doc.page_content),
             'url': doc.metadata.get('_source', {}).get('webUrl', ''),
             'category': doc.metadata.get('_source', {}).get('category', 'sharepoint'),
             'updated_at': doc.metadata.get('_source', {}).get('lastModifiedDateTime', None)
@@ -126,8 +133,9 @@ def ask_question(question, session_id):
 
     answer = ""
     for chunk in get_llm().stream(qa_prompt):
+        # content = chunk.content
         content = chunk.content.replace(
-            "\n", " "
+            "\n", "  "
         )  # the stream can get messed up with newlines
         yield f"data: {content}\n\n"
         answer += chunk.content

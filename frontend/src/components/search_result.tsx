@@ -39,6 +39,34 @@ const cleanAndTruncateSummary = (summary: string[], maxWords: number): string[] 
   }, [] as string[]);
 };
 
+const formatPath = (url: string) => {
+  const parsedUrl = new URL(url);
+  const path = decodeURIComponent(parsedUrl.pathname);
+  const parts = path.split('/').filter(Boolean);
+  
+  // Start from the second part (index 1) if it exists
+  const pathParts = parts.length > 1 ? parts.slice(1, -1) : parts.slice(0, -1);
+  
+  // Remove unwanted punctuation including backticks and trim whitespace
+  const cleanParts = pathParts.map(part => part.replace(/['"`]/g, '').trim());
+  
+  const formattedPath = cleanParts.join(' > ');
+  
+  // Split the path into two lines if it's longer than 50 characters
+  if (formattedPath.length > 50) {
+    const midPoint = Math.floor(formattedPath.length / 2);
+    const splitIndex = formattedPath.indexOf(' > ', midPoint);
+    if (splitIndex !== -1) {
+      return [
+        formattedPath.slice(0, splitIndex),
+        formattedPath.slice(splitIndex + 3)
+      ];
+    }
+  }
+  
+  return [formattedPath];
+};
+
 export const SearchResult: React.FC<SearchResultProps> = ({
   name,
   icon,
@@ -101,13 +129,21 @@ export const SearchResult: React.FC<SearchResultProps> = ({
           >
             {url}
           </a>
-          {cleanAndTruncateSummary(summary, 150).map((text, index) => (
+          <span className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs">
+            PATH
+          </span>
+          <div className="text-sm overflow-ellipsis overflow-hidden">
+            {formatPath(url).map((line, index) => (
+              <div key={index} className="whitespace-nowrap">{line}</div>
+            ))}
+          </div>
+          {summary?.map((text, index) => (
             <React.Fragment key={index}>
               <span className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs">
-                Snippet
+                Summary
               </span>
               <p className="text-sm mb-2 overflow-ellipsis text-black">
-                ...{text}
+                {text}
               </p>
             </React.Fragment>
           ))}

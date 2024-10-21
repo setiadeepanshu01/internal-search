@@ -1,4 +1,5 @@
 import React from 'react'
+import ReactMarkdown from 'react-markdown';
 import { ChatMessageType, SourceType } from 'types'
 import { Loader } from 'components/loader'
 import { Sources } from 'components/chat/sources'
@@ -24,7 +25,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <ElasticLogo width={24} height={24} />
     </span>
   )
-
+  const formattedContent = content?.replace(/  /g, '\n &nbsp;') || '';
   return (
     <div>
       <div className={`flex mt-6 gap-2 ${isHuman ? 'justify-end' : ''}`}>
@@ -37,10 +38,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               : 'bg-white shadow border-2 border-blue-100 rounded-bl-none text-zinc-700'
           }`}
         >
-          <span
-            className="whitespace-pre-wrap leading-normal"
-            dangerouslySetInnerHTML={{ __html: content || '' }}
-          ></span>
+          <ReactMarkdown className="whitespace-pre-wrap leading-normal">
+            {formattedContent}
+          </ReactMarkdown>
           {loading && <Loader />}
         </div>
       </div>

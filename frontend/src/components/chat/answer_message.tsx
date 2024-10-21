@@ -1,10 +1,12 @@
-import { Sources } from './sources'
-import { ChatMessageType } from '../../types'
+import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import { Sources } from './sources';
+import { ChatMessageType } from '../../types';
 
 interface AnswerMessageProps {
-  text: ChatMessageType['content']
-  sources: ChatMessageType['sources']
-  onSourceClick: (source: string) => void
+  text: ChatMessageType['content'];
+  sources: ChatMessageType['sources'];
+  onSourceClick: (source: string) => void;
 }
 
 export const AnswerMessage: React.FC<AnswerMessageProps> = ({
@@ -12,6 +14,7 @@ export const AnswerMessage: React.FC<AnswerMessageProps> = ({
   sources,
   onSourceClick,
 }) => {
+  const formattedText = text.replace(/  /g, '\n &nbsp;');
   return (
     <div className="mb-4">
       <header className="flex flex-row justify-between mb-8">
@@ -28,10 +31,9 @@ export const AnswerMessage: React.FC<AnswerMessageProps> = ({
       </header>
 
       {text && (
-        <div
-          className="text-base leading-tight text-gray-800 whitespace-pre-wrap mb-8"
-          dangerouslySetInnerHTML={{ __html: text }}
-        ></div>
+        <div className="text-base leading-tight text-gray-800 whitespace-pre-wrap mb-8">
+          <ReactMarkdown>{formattedText}</ReactMarkdown>
+        </div>
       )}
       {sources && (
         <Sources
@@ -41,5 +43,5 @@ export const AnswerMessage: React.FC<AnswerMessageProps> = ({
         />
       )}
     </div>
-  )
-}
+  );
+};

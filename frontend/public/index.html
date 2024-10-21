@@ -63,43 +63,6 @@
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="login-form">
-      <form onsubmit="return login()">
-        <img src="%PUBLIC_URL%/mm.png" alt="Company Logo" class="logo">
-        <input type="text" id="username" placeholder="Username" required>
-        <input type="password" id="password" placeholder="Password" required>
-        <button type="submit">Login</button>
-      </form>
-    </div>
-    <div id="root" style="display: none;"></div>
-    <script>
-      function login() {
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        
-        fetch('/api/verify-credentials', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ username, password }),
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data.authenticated) {
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('root').style.display = 'block';
-          } else {
-            alert('Invalid credentials');
-          }
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          alert('An error occurred during authentication');
-        });
-
-        return false;
-      }
-    </script>
+    <div id="root"></div>
   </body>
 </html>

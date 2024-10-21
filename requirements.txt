@@ -35,3 +35,4 @@ boto3
 exceptiongroup
 importlib-metadata
 numexpr
+PyJWT

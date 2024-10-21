@@ -1,0 +1,5 @@
+Create a concise and dense summary of the following document text in 150 words:
+
+{{page_content}}
+
+Summary:
