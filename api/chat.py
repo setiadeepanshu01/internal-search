@@ -38,12 +38,6 @@ def bm25_query(search_query: str) -> Dict:
         "size": 3
     }
 
-def custom_mapper(hit: Dict[str, Any]) -> Document:
-    content = hit["_source"][text_field]
-    return Document(
-        metadata={"text_content": content},
-    )
-
 def generate_doc_summary(page_content: str) -> str:
     prompt = render_template(
         "generate_doc_summary_prompt.txt",
@@ -79,11 +73,9 @@ def ask_question(question, session_id):
             body_func=bm25_query,
             es_client=elasticsearch_client,
             content_field=text_field,
-            # document_mapper=custom_mapper,
         )
 
     docs = bm25_retriever.invoke(condensed_question)
-    # docs = store.as_retriever().invoke(condensed_question)
     current_app.logger.debug("Retrieved %s documents", len(docs))
     for doc in docs:
         doc_source = {
@@ -99,31 +91,6 @@ def ask_question(question, session_id):
         )
         yield f"data: {SOURCE_TAG} {json.dumps(doc_source)}\n\n"
 
-    # for doc in docs:
-    #     doc_source = {
-    #         'content': doc.page_content,
-    #         'summary': doc.page_content[:100] + '...',  # Create a brief summary
-    #         'name': doc.metadata.get('_source', {}).get('name', 'Unknown'),
-    #         'url': doc.metadata.get('_source', {}).get('webUrl', ''),
-    #         'created_on': doc.metadata.get('_source', {}).get('created_on', ''),
-    #         'updated_at': doc.metadata.get('_source', {}).get('updated_at', ''),
-    #         'category': doc.metadata.get('_source', {}).get('category', 'sharepoint'),
-    #         '_run_ml_inference': False,  # Dummy value
-    #         'rolePermissions': []  # Dummy value
-    #     }
-    #     current_app.logger.debug(
-    #         "Retrieved document passage from: %s", doc_source['name']
-    #     )
-    #     yield f"data: {SOURCE_TAG} {json.dumps(doc_source)}\n\n"
-
-    # for doc in docs:
-    #     doc_source = doc.metadata['_source']
-    #     doc_source['body'] = doc.page_content
-    #     current_app.logger.debug(
-    #         "Retrieved document passage from: %s", doc_source.get('name', 'Unknown')
-    #     )
-    #     yield f"data: {SOURCE_TAG} {json.dumps(doc_source)}\n\n"
-
     qa_prompt = render_template(
         "rag_prompt.txt",
         question=question,
@@ -133,10 +100,9 @@ def ask_question(question, session_id):
 
     answer = ""
     for chunk in get_llm().stream(qa_prompt):
-        # content = chunk.content
         content = chunk.content.replace(
             "\n", "  "
-        )  # the stream can get messed up with newlines
+        )
         yield f"data: {content}\n\n"
         answer += chunk.content
 

@@ -10,7 +10,7 @@ import { Header } from 'components/header'
 import { Chat } from 'components/chat/chat'
 import SearchInput from 'components/search_input'
 import { ReactComponent as ChatIcon } from 'images/chat_icon.svg'
-import { ReactComponent as ElasticLogo } from 'images/elastic_logo.svg'
+import { ReactComponent as MX2Logo } from 'images/mx2_logo.svg'
 import { SearchResults } from './components/search_results'
 import { Loader } from 'components/loader'
 import LoginForm from 'components/login_form'
@@ -122,7 +122,7 @@ const App = () => {
                 </div>
               ) : (
                 <div className="h-36 p-6 bg-white rounded-md shadow flex flex-col justify-start items-center gap-4 mt-6">
-                  <ElasticLogo className="w-16 h-16" />
+                  <MX2Logo className="w-16 h-16" />
                   <p className="text-center text-zinc-400 text-sm ">
                     Looking that up for you...
                   </p>

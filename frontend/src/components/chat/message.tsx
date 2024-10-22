@@ -4,7 +4,7 @@ import { ChatMessageType, SourceType } from 'types'
 import { Loader } from 'components/loader'
 import { Sources } from 'components/chat/sources'
 import { ReactComponent as UserLogo } from 'images/user.svg'
-import { ReactComponent as ElasticLogo } from 'images/elastic_logo.svg'
+import { ReactComponent as MX2Logo } from 'images/mx2_logo.svg'
 
 type ChatMessageProps = Omit<ChatMessageType, 'id'> & {
   onSourceClick: (source: string) => void
@@ -22,7 +22,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     </span>
   ) : (
     <span className="self-end p-2 rounded-md bg-blue-50 shadow">
-      <ElasticLogo width={24} height={24} />
+      <MX2Logo width={24} height={24} />
     </span>
   )
   const formattedContent = content?.replace(/  /g, '\n &nbsp;') || '';

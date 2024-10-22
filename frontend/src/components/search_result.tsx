@@ -9,36 +9,6 @@ interface SearchResultProps extends SourceType {
 
 const TITLE_HEIGHT = 59
 
-const cleanAndTruncateSummary = (summary: string[], maxWords: number): string[] => {
-  const cleanText = (text: string): string => {
-    return text
-      .toLowerCase()
-      .replace(/[^\w\s]/g, '') // Remove non-alphanumeric characters except spaces
-      .replace(/\d+/g, '')     // Remove numbers
-      .replace(/[_\-]+/g, '')  // Remove underscores and dashes
-      .replace(/\s+/g, ' ')    // Replace multiple spaces with a single space
-      .trim();
-  };
-  const capitalizeFirstLetter = (text: string): string => {
-    return text.charAt(0).toUpperCase() + text.slice(1);
-  };
-
-  let totalWords = 0;
-  return summary.reduce((acc, text) => {
-    if (totalWords < maxWords) {
-      const cleanedText = cleanText(text);
-      const words = cleanedText.split(' ');
-      const remainingWords = maxWords - totalWords;
-      const truncatedWords = words.slice(0, remainingWords);
-      totalWords += truncatedWords.length;
-      if (truncatedWords.length > 0) {
-        acc.push(capitalizeFirstLetter(truncatedWords.join(' ')));
-      }
-    }
-    return acc;
-  }, [] as string[]);
-};
-
 const formatPath = (url: string) => {
   const parsedUrl = new URL(url);
   const path = decodeURIComponent(parsedUrl.pathname);
