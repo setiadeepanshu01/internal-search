@@ -37,6 +37,22 @@ const formatPath = (url: string) => {
   return [formattedPath];
 };
 
+const extractPathUrl = (url: string) => {
+  try {
+    const parsedUrl = new URL(url);
+    const path = decodeURIComponent(parsedUrl.pathname);
+    const parts = path.split('/').filter(Boolean);
+    
+    if (parts.length > 1) {
+      const pathUrlParts = parts.slice(0, -1).join('/');
+      return `${parsedUrl.origin}/${pathUrlParts}`;
+    }
+  } catch (error) {
+    console.error('Invalid URL', error);
+  }
+  return null;
+};
+
 export const SearchResult: React.FC<SearchResultProps> = ({
   name,
   icon,
@@ -61,6 +77,7 @@ export const SearchResult: React.FC<SearchResultProps> = ({
   }, [summary])
 
   const updatedAtDate = new Date(updated_at || '')
+  const pathUrl = extractPathUrl(url);
 
   return (
     <div className="flex flex-col">
@@ -102,11 +119,16 @@ export const SearchResult: React.FC<SearchResultProps> = ({
           <span className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs">
             PATH
           </span>
-          <div className="text-sm overflow-ellipsis overflow-hidden">
-            {formatPath(url).map((line, index) => (
-              <div key={index} className="whitespace-nowrap">{line}</div>
-            ))}
-          </div>
+          {pathUrl && (
+            <a
+              className="hover:text-blue-800 text-blue-500 text-sm overflow-ellipsis overflow-hidden whitespace-nowrap"
+              target="_blank"
+              rel="noreferrer"
+              href={pathUrl}
+            >
+              {formatPath(url).join(' ')}
+            </a>
+          )}
           {summary?.map((text, index) => (
             <React.Fragment key={index}>
               <span className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs">

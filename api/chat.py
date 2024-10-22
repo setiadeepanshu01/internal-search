@@ -80,7 +80,7 @@ def ask_question(question, session_id):
     for doc in docs:
         doc_source = {
             'name': doc.metadata.get('_source', {}).get('name', 'Unknown'),
-            'summary': doc.page_content[:50] + '...',  # Create a brief summary of the document
+            'summary': doc.page_content[:50] + '...',
             'page_content': generate_doc_summary(doc.page_content),
             'url': doc.metadata.get('_source', {}).get('webUrl', ''),
             'category': doc.metadata.get('_source', {}).get('category', 'sharepoint'),

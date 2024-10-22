@@ -46,10 +46,10 @@ const App = () => {
   const handleAbortRequest = () => {
     dispatch(thunkActions.abortRequest())
   }
-  const handleToggleSource = (name) => {
+  const handleToggleSource = (name: string) => {
     dispatch(actions.sourceToggle({ name }))
   }
-  const handleSourceClick = (name) => {
+  const handleSourceClick = (name: string) => {
     dispatch(actions.sourceToggle({ name, expanded: true }))
 
     setTimeout(() => {
