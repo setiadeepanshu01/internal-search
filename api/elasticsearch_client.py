@@ -22,6 +22,25 @@ else:
 
 
 def get_elasticsearch_chat_message_history(index, session_id):
+    # Check if the index exists
+    if not elasticsearch_client.indices.exists(index=index):
+        # Create the index with proper mapping for chat history
+        # Including the 'created_at' field that's causing the error
+        mapping = {
+            "mappings": {
+                "properties": {
+                    "session_id": {"type": "keyword"},
+                    "history": {"type": "text"},
+                    "created_at": {"type": "date"}
+                }
+            }
+        }
+        try:
+            elasticsearch_client.indices.create(index=index, body=mapping)
+        except Exception as e:
+            raise RuntimeError(f"Failed to create index: {e}")
+    
+    # Return the chat history object
     return ElasticsearchChatMessageHistory(
         es_connection=elasticsearch_client, index=index, session_id=session_id
     )

@@ -60,10 +60,10 @@ const App = () => {
   }
 
   const suggestedQueries = [
-    'Has Doctor Richard Strain ever claimed that a herniation is a permanent injury?',
-    'Has Dr. Ying Lu discussed delta-v force?',
-    'What are the common questions asked in defense cross-examination of Dr. Amir Ahmadian?',
-    'Has Nicole Bonaparte testimony ever been stricken by a court?',
+    'What are the common defenses used in nursing home negligence cases?',
+    'How do I determine if my client qualifies for mass tort litigation versus individual representation?',
+    'What medical evidence is most effective in proving permanent injury in PI/PREM cases?',
+    'How has recent case law affected data breach class action settlements?',
   ]
 
   if (isLoading) {

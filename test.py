@@ -32,7 +32,7 @@ def get_elasticsearch_results(query):
     }
     
     # Execute the search query
-    result = es_client.search(index="search-internal", body=es_query)
+    result = es_client.search(index="ccc-db", body=es_query)
     return result["hits"]["hits"]
 
 def create_openai_prompt(results):
@@ -72,7 +72,7 @@ def generate_openai_completion(user_prompt, question):
 if __name__ == "__main__":
     # question = "What is in CV OF SHAUN MARIE SEVER PO Like?"
     # question = "What Courtney Future Cost Projections look like?"
-    question = "What is Kellie Geanuracos expert of?"
+    question = "Work at Home Troubleshooting"
     elasticsearch_results = get_elasticsearch_results(question)
     # Print Elasticsearch results for debugging
     # print("Elasticsearch Results:")

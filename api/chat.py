@@ -11,9 +11,9 @@ from flask import render_template, stream_with_context, current_app
 import json
 import os
 
-INDEX = os.getenv("ES_INDEX", "search-internal")
+INDEX = os.getenv("ES_INDEX", "ccc-db")
 INDEX_CHAT_HISTORY = os.getenv(
-    "ES_INDEX_CHAT_HISTORY", "search-internal-chat-history"
+    "ES_INDEX_CHAT_HISTORY", "ccc-db-chat-history"
 )
 ELSER_MODEL = os.getenv("ELSER_MODEL", ".elser_model_2_linux-x86_64")
 SESSION_ID_TAG = "[SESSION_ID]"
