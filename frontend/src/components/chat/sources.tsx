@@ -24,6 +24,7 @@ export const Sources: React.FC<SourcesProps> = ({
               key={source.name}
               name={source.name}
               icon={source.icon}
+              confidence={source.confidence}
               onSourceClick={onSourceClick}
             />
           ))}

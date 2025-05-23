@@ -29,6 +29,7 @@ export type SourceType = {
   icon: string
   updated_at?: string | null
   expanded: boolean
+  confidence?: number
 }
 
 export type ChatMessageType = {

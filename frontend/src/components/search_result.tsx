@@ -59,6 +59,7 @@ export const SearchResult: React.FC<SearchResultProps> = ({
   url,
   summary,
   updated_at,
+  confidence,
   expanded,
   toggleSource,
 }) => {
@@ -141,15 +142,22 @@ export const SearchResult: React.FC<SearchResultProps> = ({
           ))}
         </div>
       </div>
-      {updated_at && (
-        <span className="self-end mt-1 text-zinc-400 text-xs tracking-tight font-medium uppercase">
-          {`LAST UPDATED ${updatedAtDate.toLocaleDateString('common', {
-            month: 'short',
-          })} ${updatedAtDate.toLocaleDateString('common', {
-            day: 'numeric',
-          })}, ${updatedAtDate.getFullYear()}`}
-        </span>
-      )}
+      <div className="flex justify-between items-center mt-1">
+        {confidence && (
+          <span className="text-zinc-400 text-xs tracking-tight font-medium">
+            Confidence Score: {confidence.toFixed(1)}%
+          </span>
+        )}
+        {updated_at && (
+          <span className="text-zinc-400 text-xs tracking-tight font-medium uppercase">
+            {`LAST UPDATED ${updatedAtDate.toLocaleDateString('common', {
+              month: 'short',
+            })} ${updatedAtDate.toLocaleDateString('common', {
+              day: 'numeric',
+            })}, ${updatedAtDate.getFullYear()}`}
+          </span>
+        )}
+      </div>
     </div>
   )
 }

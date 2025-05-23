@@ -9,3 +9,5 @@ venv
 .env
 .vscode/settings.json
 files/
+*.pyc
+__pycache__/

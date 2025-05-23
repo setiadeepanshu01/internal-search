@@ -13,6 +13,9 @@ python-dotenv
 
 # OpenAI dependencies
 openai
+langchain-openai
+jinja2
+portkey-ai
 
 # Vertex AI dependencies
 # google-cloud-aiplatform

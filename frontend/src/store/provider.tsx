@@ -202,6 +202,7 @@ export const thunkActions = {
                     url?: string
                     category?: string
                     updated_at?: string | null
+                    confidence?: number
                   } = JSON.parse(source.replaceAll('\n', ''))
 
                   if (parsedSource.page_content && parsedSource.name) {
@@ -213,6 +214,7 @@ export const thunkActions = {
                           summary: parsedSource.page_content,
                           icon: parsedSource.category,
                           updated_at: parsedSource.updated_at,
+                          confidence: parsedSource.confidence,
                         },
                       })
                     )

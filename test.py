@@ -61,7 +61,7 @@ def create_openai_prompt(results):
 def generate_openai_completion(user_prompt, question):
     # Generate response using OpenAI's GPT model
     response = openai_client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4.1",
         messages=[
             {"role": "system", "content": user_prompt},
             {"role": "user", "content": question},

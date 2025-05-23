@@ -15,21 +15,21 @@ config = {
 
 portkey_headers = createHeaders(api_key= os.getenv("PORTKEY_API_KEY"),
                                 provider="openai",
-                                metadata={"_user": "mx2"},
+                                metadata={"_user": "mx2-ccc"},
                                 config=config
                                 )
 
 def init_openai_chat(temperature):
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     return ChatOpenAI(
-        openai_api_key=OPENAI_API_KEY, streaming=True, temperature=temperature, model='gpt-4o',
+        openai_api_key=OPENAI_API_KEY, streaming=True, temperature=temperature, model='gpt-4.1',
         base_url=PORTKEY_GATEWAY_URL, default_headers=portkey_headers, stream_usage=True
     )
 
 def init_openai_config_chat(temperature):
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     return ChatOpenAI(
-        openai_api_key=OPENAI_API_KEY, streaming=False, temperature=temperature, model='gpt-4o',
+        openai_api_key=OPENAI_API_KEY, streaming=False, temperature=temperature, model='gpt-4.1',
         base_url=PORTKEY_GATEWAY_URL, default_headers=portkey_headers
     )
 
