@@ -13,6 +13,8 @@ from templates import prompt
 import json
 import os
 import asyncio
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 INDEX = os.getenv("ES_INDEX", "ccc-db")
 INDEX_CHAT_HISTORY = os.getenv(
@@ -146,12 +148,73 @@ def ask_question(question, session_id):
     docs = bm25_retriever.invoke(condensed_question)
     current_app.logger.debug("Retrieved %s documents", len(docs))
 
+    # Send basic source information immediately after retrieval
+    for doc in docs:
+        basic_source = {
+            "name": doc.metadata.get("_source", {}).get("name", "Unknown"),
+            "summary": doc.page_content[:100] + "...",  # Quick preview
+            "page_content": "Loading summary...",  # Placeholder
+            "url": doc.metadata.get("_source", {}).get("webUrl", ""),
+            "category": doc.metadata.get("_source", {}).get("category", "sharepoint"),
+            "confidence": doc.metadata.get("_score", 0),
+            "updated_at": doc.metadata.get("_source", {}).get("lastModifiedDateTime", None),
+            "loading": True  # Indicate that summary is being generated
+        }
+        current_app.logger.debug(f'Retrieved document passage from: {basic_source["name"]}')
+        yield f"data: {SOURCE_TAG} {json.dumps(basic_source)}\n\n"
+
+    # Start summary generation in background using threading
+    def generate_single_summary(page_content):
+        """Wrapper function to run async summary generation in a thread"""
+        import asyncio
+        import time
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            # Run the async function
+            result = loop.run_until_complete(generate_doc_summary(page_content))
+            
+            # Wait a bit for any pending tasks to complete
+            pending_tasks = asyncio.all_tasks(loop)
+            if pending_tasks:
+                loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+            
+            return result
+        except Exception as e:
+            current_app.logger.error(f"Summary generation error: {e}")
+            return "Summary generation failed"
+        finally:
+            # Give the loop a moment to clean up
+            try:
+                # Cancel any remaining tasks
+                pending_tasks = asyncio.all_tasks(loop)
+                for task in pending_tasks:
+                    task.cancel()
+                
+                # Run one more time to let cancellations process
+                if pending_tasks:
+                    loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+                    
+            except Exception:
+                pass  # Ignore cleanup errors
+            finally:
+                loop.close()
+
+    # Start summary generation in parallel threads
+    executor = ThreadPoolExecutor(max_workers=min(len(docs), 5))
+    summary_futures = {
+        executor.submit(generate_single_summary, doc.page_content): i 
+        for i, doc in enumerate(docs)
+    }
+
     qa_prompt = rags_prompt_template.render(
         question=question,
         docs=docs,
         chat_history=chat_history.messages,
     )
 
+    # Stream the answer while summaries are being generated
     answer = ""
     for chunk in get_llm().stream(qa_prompt):
         content = chunk.content.replace(
@@ -162,32 +225,55 @@ def ask_question(question, session_id):
 
     yield f"data: {DONE_TAG}\n\n"
 
-    # Generate document summaries concurrently
-    async def generate_summaries():
-        summary_tasks = [generate_doc_summary(doc.page_content) for doc in docs]
-        return await asyncio.gather(*summary_tasks)
-
-    # Run the async summary generation
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    # Wait for summaries to complete and send enhanced source information
     try:
-        summaries = loop.run_until_complete(generate_summaries())
+        # Initialize summaries array to maintain order
+        summaries = [None] * len(docs)
+        
+        # Collect results as they complete
+        for future in as_completed(summary_futures.keys(), timeout=30):
+            try:
+                doc_index = summary_futures[future]
+                summary = future.result()
+                summaries[doc_index] = summary
+            except Exception as e:
+                current_app.logger.error(f"Summary generation failed for doc {summary_futures[future]}: {e}")
+                summaries[summary_futures[future]] = "Summary generation failed"
+        
+        # Send enhanced source information with summaries
+        for i, (doc, summary) in enumerate(zip(docs, summaries)):
+            enhanced_source = {
+                "name": doc.metadata.get("_source", {}).get("name", "Unknown"),
+                "summary": doc.page_content[:100] + "...",
+                "page_content": summary if summary else "Summary generation failed",
+                "url": doc.metadata.get("_source", {}).get("webUrl", ""),
+                "category": doc.metadata.get("_source", {}).get("category", "sharepoint"),
+                "confidence": doc.metadata.get("_score", 0),
+                "updated_at": doc.metadata.get("_source", {}).get("lastModifiedDateTime", None),
+                "loading": False,  # Summary is ready
+                "enhanced": True,   # Indicate this is an enhanced version
+                "error": summary == "Summary generation failed" if summary else True
+            }
+            yield f"data: {SOURCE_TAG} {json.dumps(enhanced_source)}\n\n"
+            
+    except Exception as e:
+        current_app.logger.error(f"Summary processing failed: {e}")
+        # Send error state for sources
+        for doc in docs:
+            error_source = {
+                "name": doc.metadata.get("_source", {}).get("name", "Unknown"),
+                "summary": doc.page_content[:100] + "...",
+                "page_content": "Summary generation failed",
+                "url": doc.metadata.get("_source", {}).get("webUrl", ""),
+                "category": doc.metadata.get("_source", {}).get("category", "sharepoint"),
+                "confidence": doc.metadata.get("_score", 0),
+                "updated_at": doc.metadata.get("_source", {}).get("lastModifiedDateTime", None),
+                "loading": False,
+                "error": True
+            }
+            yield f"data: {SOURCE_TAG} {json.dumps(error_source)}\n\n"
     finally:
-        loop.close()
-
-    # Process results and yield source information
-    for doc, summary in zip(docs, summaries):
-        doc_source = {
-            "name": doc.metadata.get("_source", {}).get("name", "Unknown"),
-            "summary": doc.page_content[:50] + "...",
-            "page_content": summary,
-            "url": doc.metadata.get("_source", {}).get("webUrl", ""),
-            "category": doc.metadata.get("_source", {}).get("category", "sharepoint"),
-            "confidence": doc.metadata.get("_score", 0),
-            "updated_at": doc.metadata.get("_source", {}).get("lastModifiedDateTime", None),
-        }
-        current_app.logger.debug(f'Retrieved document passage from: {doc_source["name"]}')
-        yield f"data: {SOURCE_TAG} {json.dumps(doc_source)}\n\n"
+        executor.shutdown(wait=False)
 
     current_app.logger.debug("Answer: %s", answer)
 

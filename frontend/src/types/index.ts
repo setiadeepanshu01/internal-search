@@ -30,6 +30,10 @@ export type SourceType = {
   updated_at?: string | null
   expanded: boolean
   confidence?: number
+  loading?: boolean
+  enhanced?: boolean
+  error?: boolean
+  page_content?: string
 }
 
 export type ChatMessageType = {

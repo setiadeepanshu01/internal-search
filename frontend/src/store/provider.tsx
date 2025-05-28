@@ -43,11 +43,44 @@ const globalSlice = createSlice({
       const rootSource = state.sources.find((s) => s.name === source.name)
 
       if (rootSource) {
-        if (!rootSource.summary.find((summary) => summary === source.summary)) {
-          rootSource.summary = [...rootSource.summary, source.summary]
+        // Update existing source with new information
+        rootSource.loading = source.loading ?? false
+        rootSource.enhanced = source.enhanced ?? false
+        rootSource.error = source.error ?? false
+        
+        // Update summary - replace loading placeholder or add new summary
+        if (source.summary) {
+          if (source.summary === "Loading summary...") {
+            // Don't add loading placeholder if we already have real content
+            if (!rootSource.summary.some(s => s !== "Loading summary...")) {
+              if (!rootSource.summary.includes("Loading summary...")) {
+                rootSource.summary = [...rootSource.summary, source.summary]
+              }
+            }
+          } else {
+            // Replace loading placeholder with actual summary, or add if no placeholder
+            const loadingIndex = rootSource.summary.indexOf("Loading summary...")
+            if (loadingIndex !== -1) {
+              rootSource.summary[loadingIndex] = source.summary
+            } else if (!rootSource.summary.includes(source.summary)) {
+              rootSource.summary = [...rootSource.summary, source.summary]
+            }
+          }
         }
+        
+        // Update other fields if they exist
+        if (source.url) rootSource.url = source.url
+        if (source.confidence !== undefined) rootSource.confidence = source.confidence
+        if (source.updated_at !== undefined) rootSource.updated_at = source.updated_at
       } else {
-        state.sources.push({ ...source, summary: [source.summary] })
+        // Create new source
+        state.sources.push({ 
+          ...source, 
+          summary: [source.summary],
+          loading: source.loading ?? false,
+          enhanced: source.enhanced ?? false,
+          error: source.error ?? false
+        })
       }
     },
     setStatus: (state, action) => {
@@ -203,6 +236,9 @@ export const thunkActions = {
                     category?: string
                     updated_at?: string | null
                     confidence?: number
+                    loading?: boolean
+                    enhanced?: boolean
+                    error?: boolean
                   } = JSON.parse(source.replaceAll('\n', ''))
 
                   if (parsedSource.page_content && parsedSource.name) {
@@ -215,6 +251,9 @@ export const thunkActions = {
                           icon: parsedSource.category,
                           updated_at: parsedSource.updated_at,
                           confidence: parsedSource.confidence,
+                          loading: parsedSource.loading,
+                          enhanced: parsedSource.enhanced,
+                          error: parsedSource.error,
                         },
                       })
                     )

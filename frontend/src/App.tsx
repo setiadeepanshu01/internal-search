@@ -59,11 +59,24 @@ const App = () => {
     }, 300)
   }
 
+  const handleRetry = () => {
+    if (searchQuery) {
+      dispatch(thunkActions.search(searchQuery))
+    }
+  }
+
+  const handleClear = () => {
+    dispatch(actions.reset())
+    setSearchQuery('')
+  }
+
   const suggestedQueries = [
-    'What are the common defenses used in nursing home negligence cases?',
-    'How do I determine if my client qualifies for mass tort litigation versus individual representation?',
-    'What medical evidence is most effective in proving permanent injury in PI/PREM cases?',
-    'How has recent case law affected data breach class action settlements?',
+    'Can you explain what a skeletal injury is in legal terms?',
+    'What does ATD stand for in a legal context?',
+    'What is general liability insurance and what does it cover?',
+    'What qualifies a lawsuit as a class action?',
+    'What constitutes proper initial treatment in a personal injury case?',
+    'What is negligent security, and when can you sue for it?',
   ]
 
   if (isLoading) {
@@ -79,6 +92,8 @@ const App = () => {
             onSearch={handleSearch}
             value={searchQuery}
             appStatus={status}
+            onRetry={handleRetry}
+            onClear={handleClear}
           />
 
           {status === AppStatus.Idle ? (
