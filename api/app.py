@@ -6,6 +6,7 @@ import os
 import sys
 import jwt
 import datetime
+import requests
 
 app = Flask(__name__, static_folder="../frontend/build", static_url_path="/")
 CORS(app)
@@ -42,6 +43,42 @@ def api_chat():
 
     session_id = request.args.get("session_id", str(uuid4()))
     return Response(ask_question(question, session_id), mimetype="text/event-stream")
+
+@app.route("/api/feedback", methods=["POST"])
+def api_feedback():
+    data = request.get_json()
+    trace_id = data.get('trace_id')
+    value = data.get('value')  # 1 for 👍, -1 for 👎
+    
+    if not trace_id or value is None:
+        return jsonify({"success": False, "error": "Missing trace_id or value"}), 400
+    
+    # Log feedback locally first
+    app.logger.info(f"User feedback: trace_id={trace_id}, value={value} ({'positive' if value > 0 else 'negative'})")
+    
+    # Try to send to Portkey
+    try:
+        response = requests.post(
+            'https://api.portkey.ai/v1/feedback',
+            headers={
+                'x-portkey-api-key': os.getenv("PORTKEY_API_KEY"),
+                'Content-Type': 'application/json'
+            },
+            json={
+                'trace_id': trace_id,
+                'value': value
+            },
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            app.logger.info(f"Feedback sent to Portkey successfully: trace_id={trace_id}")
+        else:
+            app.logger.warning(f"Portkey feedback API returned {response.status_code}: {response.text}")
+    except Exception as e:
+        app.logger.warning(f"Failed to send feedback to Portkey: {str(e)}")
+    
+    return jsonify({"success": True})
 
 
 @app.cli.command()

@@ -1,6 +1,6 @@
 from langchain_elasticsearch import ElasticsearchStore, BM25Strategy
 from langchain_elasticsearch import ElasticsearchRetriever
-from llm_integrations import get_llm, init_openai_config_chat
+from llm_integrations import get_llm, get_llm_with_trace_id, init_openai_config_chat
 from elasticsearch_client import (
     elasticsearch_client,
     get_elasticsearch_chat_message_history,
@@ -24,6 +24,7 @@ ELSER_MODEL = os.getenv("ELSER_MODEL", ".elser_model_2_linux-x86_64")
 SESSION_ID_TAG = "[SESSION_ID]"
 SOURCE_TAG = "[SOURCE]"
 DONE_TAG = "[DONE]"
+TRACE_ID_TAG = "[TRACE_ID]"
 
 text_field = "body"
 
@@ -214,9 +215,16 @@ def ask_question(question, session_id):
         chat_history=chat_history.messages,
     )
 
+    # Get LLM with trace ID for feedback tracking
+    llm_with_trace, trace_id = get_llm_with_trace_id()
+    current_app.logger.debug(f"Generated trace ID: {trace_id}")
+    
+    # Send trace ID for feedback tracking
+    yield f"data: {TRACE_ID_TAG} {trace_id}\n\n"
+
     # Stream the answer while summaries are being generated
     answer = ""
-    for chunk in get_llm().stream(qa_prompt):
+    for chunk in llm_with_trace.stream(qa_prompt):
         content = chunk.content.replace(
             "\n", "  "
         )

@@ -27,6 +27,7 @@ export const Chat: React.FC<ChatProps> = ({
       <AnswerMessage
         text={summary?.content}
         sources={summary?.sources || []}
+        traceId={summary?.traceId}
         onSourceClick={onSourceClick}
       />
     </div>

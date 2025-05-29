@@ -42,4 +42,5 @@ export type ChatMessageType = {
   isHuman?: boolean
   loading?: boolean
   sources?: SourceType[]
+  traceId?: string
 }

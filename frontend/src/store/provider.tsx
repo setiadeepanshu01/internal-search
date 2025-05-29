@@ -23,6 +23,7 @@ enum STREAMING_EVENTS {
   SESSION_ID = '[SESSION_ID]',
   SOURCE = '[SOURCE]',
   DONE = '[DONE]',
+  TRACE_ID = '[TRACE_ID]',
 }
 
 const GLOBAL_STATE: GlobalStateType = {
@@ -221,6 +222,14 @@ export const thunkActions = {
             if (event.data.startsWith(STREAMING_EVENTS.SESSION_ID)) {
               const sessionId = event.data.split(' ')[1].trim()
               dispatch(actions.setSessionId({ sessionId }))
+            } else if (event.data.startsWith(STREAMING_EVENTS.TRACE_ID)) {
+              const traceId = event.data.split(' ')[1].trim()
+              dispatch(
+                actions.updateMessage({
+                  id: conversationId,
+                  traceId: traceId,
+                })
+              )
             } else if (event.data.startsWith(STREAMING_EVENTS.SOURCE)) {
               const source = event.data.replace(
                 `${STREAMING_EVENTS.SOURCE} `,

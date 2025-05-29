@@ -10,6 +10,7 @@ tiktoken
 flask
 flask-cors
 python-dotenv
+requests
 
 # OpenAI dependencies
 openai
