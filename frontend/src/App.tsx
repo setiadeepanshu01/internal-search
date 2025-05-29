@@ -15,6 +15,44 @@ import { SearchResults } from './components/search_results'
 import { Loader } from 'components/loader'
 import LoginForm from 'components/login_form'
 
+// Animated loading text component
+const AnimatedLoadingText: React.FC = () => {
+  const [dots, setDots] = useState('')
+  const [textIndex, setTextIndex] = useState(0)
+
+  const loadingTexts = [
+    'Searching documents',
+    'Reviewing sources',
+    'Analyzing content',
+    'Gathering insights',
+    'Almost ready'
+  ]
+
+  useEffect(() => {
+    const dotsInterval = setInterval(() => {
+      setDots(prev => {
+        if (prev === '...') return '.'
+        return prev + '.'
+      })
+    }, 500) // Change dots every 500ms
+
+    const textInterval = setInterval(() => {
+      setTextIndex(prev => (prev + 1) % loadingTexts.length)
+    }, 2000) // Change text every 2 seconds
+
+    return () => {
+      clearInterval(dotsInterval)
+      clearInterval(textInterval)
+    }
+  }, [])
+
+  return (
+    <span>
+      {loadingTexts[textIndex]}{dots}
+    </span>
+  )
+}
+
 const App = () => {
   const dispatch = useAppDispatch()
   const status = useAppSelector((state) => state.status)
@@ -139,7 +177,7 @@ const App = () => {
                 <div className="h-36 p-6 bg-white rounded-md shadow flex flex-col justify-start items-center gap-4 mt-6">
                   <MX2Logo className="w-16 h-16" />
                   <p className="text-center text-zinc-400 text-sm ">
-                    Looking that up for you...
+                    <AnimatedLoadingText />
                   </p>
                 </div>
               )}

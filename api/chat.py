@@ -89,7 +89,7 @@ def bm25_query(search_query: str) -> Dict:
         "size": 5,
     }
 
-async def generate_doc_summary(page_content: str) -> str:
+async def generate_doc_summary(page_content: str, trace_id: str) -> str:
     from langchain_openai import ChatOpenAI
     from portkey_ai import createHeaders, PORTKEY_GATEWAY_URL
     
@@ -101,7 +101,9 @@ async def generate_doc_summary(page_content: str) -> str:
         config={
             "cache": {"mode": "semantic"},
             "retry": {"attempts": 3}
-        }
+        },
+        trace_id=trace_id,
+        span_name="Document Summary"
     )
     
     summary_llm = ChatOpenAI(
@@ -164,8 +166,12 @@ def ask_question(question, session_id):
         current_app.logger.debug(f'Retrieved document passage from: {basic_source["name"]}')
         yield f"data: {SOURCE_TAG} {json.dumps(basic_source)}\n\n"
 
+    # Get LLM with trace ID for feedback tracking
+    llm_with_trace, trace_id = get_llm_with_trace_id()
+    current_app.logger.debug(f"Generated trace ID: {trace_id}")
+    
     # Start summary generation in background using threading
-    def generate_single_summary(page_content):
+    def generate_single_summary(page_content, trace_id):
         """Wrapper function to run async summary generation in a thread"""
         import asyncio
         import time
@@ -174,7 +180,7 @@ def ask_question(question, session_id):
         asyncio.set_event_loop(loop)
         try:
             # Run the async function
-            result = loop.run_until_complete(generate_doc_summary(page_content))
+            result = loop.run_until_complete(generate_doc_summary(page_content, trace_id))
             
             # Wait a bit for any pending tasks to complete
             pending_tasks = asyncio.all_tasks(loop)
@@ -205,7 +211,7 @@ def ask_question(question, session_id):
     # Start summary generation in parallel threads
     executor = ThreadPoolExecutor(max_workers=min(len(docs), 5))
     summary_futures = {
-        executor.submit(generate_single_summary, doc.page_content): i 
+        executor.submit(generate_single_summary, doc.page_content, trace_id): i 
         for i, doc in enumerate(docs)
     }
 
@@ -214,10 +220,6 @@ def ask_question(question, session_id):
         docs=docs,
         chat_history=chat_history.messages,
     )
-
-    # Get LLM with trace ID for feedback tracking
-    llm_with_trace, trace_id = get_llm_with_trace_id()
-    current_app.logger.debug(f"Generated trace ID: {trace_id}")
     
     # Send trace ID for feedback tracking
     yield f"data: {TRACE_ID_TAG} {trace_id}\n\n"

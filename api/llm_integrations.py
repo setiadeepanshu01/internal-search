@@ -60,7 +60,8 @@ def get_llm_with_trace_id(temperature=0):
         provider="openai",
         metadata={"_user": "mx2-ccc"},
         config=config,
-        trace_id=trace_id
+        trace_id=trace_id,
+        span_name="LLM Generation",
     )
     
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
