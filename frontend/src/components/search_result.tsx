@@ -83,29 +83,34 @@ export const SearchResult: React.FC<SearchResultProps> = ({
   return (
     <div className="flex flex-col">
       <div
-        onClick={onToggle}
-        className="ease-in duration-300 overflow-hidden cursor-pointer bg-gray-50 rounded-md shadow-md hover:-translate-y-1 hover:shadow-lg"
+        className="ease-in duration-300 overflow-hidden bg-gray-50 rounded-md shadow-md hover:-translate-y-1 hover:shadow-lg"
         style={{ height: `${expanded ? blockHeight : TITLE_HEIGHT}px` }}
       >
         <div
-          className="p-4 grid grid-cols-[auto_auto] gap-2 items-start overflow-hidden"
+          className="p-4 grid grid-cols-1 gap-2 items-start overflow-hidden"
           data-source={name}
           ref={ref}
         >
-          <SourceIcon
-            className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs"
-            icon={icon}
-          />
-          <div className="inline-flex gap-4 justify-between overflow-hidden">
-            <h4 className="flex flex-row space-x-1.5 pb-2 text-md mb-1 font-semibold overflow-ellipsis overflow-hidden whitespace-nowrap text-blue-500 text-lg">
-              {name}
-            </h4>
+          <div 
+            onClick={onToggle}
+            className="flex items-center gap-4 justify-between overflow-hidden cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 -my-1"
+          >
+            <div className="flex items-center gap-3">
+              <SourceIcon
+                className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs flex-shrink-0"
+                icon={icon}
+              />
+              <h4 className="flex flex-row space-x-1.5 pb-2 text-md mb-1 font-semibold overflow-ellipsis overflow-hidden whitespace-nowrap text-blue-500 text-lg">
+                {name}
+              </h4>
+            </div>
             <ArrowDown
               className={`ease-in duration-300 flex-shrink-0 ${
                 expanded ? 'rotate-180' : 'rotate-0'
               }`}
             />
           </div>
+          <div className="grid grid-cols-[auto_1fr] gap-2 items-start ml-2">
           <span className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs">
             URL
           </span>
@@ -149,6 +154,7 @@ export const SearchResult: React.FC<SearchResultProps> = ({
               </p>
             </React.Fragment>
           )}
+          </div>
         </div>
       </div>
       <div className="flex justify-between items-center mt-1">

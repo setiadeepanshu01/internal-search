@@ -76,6 +76,7 @@ const App = () => {
   }
 
   const handleSearch = (query: string) => {
+    setSearchQuery(query)
     dispatch(thunkActions.search(query))
   }
   const handleSendChatMessage = (query: string) => {
