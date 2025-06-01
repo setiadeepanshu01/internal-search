@@ -130,7 +130,7 @@ export const SearchResult: React.FC<SearchResultProps> = ({
               {formatPath(url).join(' ')}
             </a>
           )}
-          {summary?.map((text, index) => (
+          {Array.isArray(summary) ? summary.map((text, index) => (
             <React.Fragment key={index}>
               <span className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs">
                 Summary
@@ -139,7 +139,16 @@ export const SearchResult: React.FC<SearchResultProps> = ({
                 {text}
               </p>
             </React.Fragment>
-          ))}
+          )) : summary && (
+            <React.Fragment>
+              <span className="rounded-md flex justify-center px-2 py-1 text-slate-400 text-xs">
+                Summary
+              </span>
+              <p className="text-sm mb-2 overflow-ellipsis text-black">
+                {summary}
+              </p>
+            </React.Fragment>
+          )}
         </div>
       </div>
       <div className="flex justify-between items-center mt-1">

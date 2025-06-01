@@ -4,6 +4,9 @@ from llm_integrations import get_llm, get_llm_with_trace_id, init_openai_config_
 from elasticsearch_client import (
     elasticsearch_client,
     get_elasticsearch_chat_message_history,
+    update_document_summary,
+    get_document_summary,
+    ensure_summary_field_exists,
 )
 from langchain_core.documents import Document
 from typing import Dict, Any, AsyncGenerator
@@ -11,9 +14,11 @@ from flask import stream_with_context, current_app
 from jinja2.nativetypes import NativeEnvironment
 from templates import prompt
 import json
+import logging
 import os
 import asyncio
 import threading
+import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 INDEX = os.getenv("ES_INDEX", "ccc-db")
@@ -50,43 +55,137 @@ def bm25_query(search_query: str) -> Dict:
                     }
                 }],
                 "should": [
+                    # Phrase search for better relevance
                     {
-                        "match": {
-                            text_field: {
+                        "match_phrase": {
+                            "body": {
                                 "query": search_query,
-                                "boost": 1.0
+                                "boost": 3.0,
+                                "slop": 1
                             }
                         }
                     },
+                    # Regular text search for individual words
                     {
                         "match": {
-                            "parentReference.path": {
+                            "body": {
                                 "query": search_query,
-                                "boost": 2.0
+                                "boost": 1.0,
+                                "minimum_should_match": "2<75%"
                             }
                         }
                     },
+                    # Stem search for better matching
+                    {
+                        "match": {
+                            "body.stem": {
+                                "query": search_query,
+                                "boost": 1.5,
+                                "minimum_should_match": "2<75%"
+                            }
+                        }
+                    },
+                    # Summary field (AI-generated summaries when available)
+                    {
+                        "match": {
+                            "summary": {
+                                "query": search_query,
+                                "boost": 3.0
+                            }
+                        }
+                    },
+                    # Document name search (file names are very relevant)
                     {
                         "match": {
                             "name": {
                                 "query": search_query,
+                                "boost": 2.5
+                            }
+                        }
+                    },
+                    # Name stem search for better matching
+                    {
+                        "match": {
+                            "name.stem": {
+                                "query": search_query,
                                 "boost": 2.0
                             }
                         }
                     },
+                    # Path search
                     {
                         "match": {
-                            "webUrl": {
+                            "parentReference.path": {
                                 "query": search_query,
                                 "boost": 1.5
                             }
                         }
-                    },
+                    }
                 ],
-                "minimum_should_match": 1,
+                "minimum_should_match": 1
             }
         },
         "size": 5,
+
+        "rescore": {
+            "window_size": 20,
+            "query": {
+                "rescore_query": {
+                    "bool": {
+                        "should": [
+                            # Exact phrase matching - critical for legal terms
+                            {
+                                "match_phrase": {
+                                    "body": {
+                                        "query": search_query,
+                                        "boost": 3.0,
+                                        "slop": 2
+                                    }
+                                }
+                            },
+                            # Phrase match in summary
+                            {
+                                "match_phrase": {
+                                    "summary": {
+                                        "query": search_query,
+                                        "boost": 2.5
+                                    }
+                                }
+                            },
+                            # Multi-match with cross_fields (only existing fields)
+                            {
+                                "multi_match": {
+                                    "query": search_query,
+                                    "type": "cross_fields",
+                                    "fields": [
+                                        "name^3",
+                                        "name.stem^2.5",
+                                        "summary^3",
+                                        "summary.stem^2.5",
+                                        "body^1",
+                                        "body.stem^1.5",
+                                        "parentReference.path^1.5"
+                                    ],
+                                    "operator": "or",
+                                    "minimum_should_match": "75%"
+                                }
+                            },
+                            # Boost recent documents
+                            {
+                                "range": {
+                                    "lastModifiedDateTime": {
+                                        "gte": "now-6M",
+                                        "boost": 1.2
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                },
+                "query_weight": 0.3,
+                "rescore_query_weight": 0.7
+            }
+        }
     }
 
 async def generate_doc_summary(page_content: str, trace_id: str) -> str:
@@ -121,6 +220,9 @@ async def generate_doc_summary(page_content: str, trace_id: str) -> str:
 
 @stream_with_context
 def ask_question(question, session_id):
+    # Ensure summary field exists in the index mapping
+    ensure_summary_field_exists(INDEX)
+    
     yield f"data: {SESSION_ID_TAG} {session_id}\n\n"
     current_app.logger.debug("Chat session ID: %s", session_id)
 
@@ -148,20 +250,78 @@ def ask_question(question, session_id):
             content_field=text_field,
         )
 
-    docs = bm25_retriever.invoke(condensed_question)
-    current_app.logger.debug("Retrieved %s documents", len(docs))
+    try:
+        docs = bm25_retriever.invoke(condensed_question)
+        current_app.logger.debug("Retrieved %s documents", len(docs))
+    except Exception as e:
+        current_app.logger.error(f"Elasticsearch search failed: {e}")
+        # Send error message to frontend
+        yield f"data: I'm sorry, there was an issue searching the documents. Please try again in a moment.\n\n"
+        yield f"data: {DONE_TAG}\n\n"
+        return
 
+    # Calculate improved confidence scores based on absolute relevance
+    def calculate_confidence_scores(docs):
+        if not docs:
+            return []
+        
+        # Define relevance thresholds based on typical Elasticsearch scores
+        HIGH_RELEVANCE_THRESHOLD = 10.0   # Very relevant
+        MED_RELEVANCE_THRESHOLD = 5.0     # Somewhat relevant  
+        LOW_RELEVANCE_THRESHOLD = 2.0     # Minimally relevant
+        
+        scores = [doc.metadata.get("_score", 0) for doc in docs]
+        max_score = scores[0] if scores else 1
+        
+        confidences = []
+        for i, doc in enumerate(docs):
+            raw_score = doc.metadata.get("_score", 0)
+            
+            # Base confidence on absolute score first
+            if raw_score >= HIGH_RELEVANCE_THRESHOLD:
+                base_confidence = 0.8  # 80-100% range for highly relevant
+                confidence_range = 20
+            elif raw_score >= MED_RELEVANCE_THRESHOLD:
+                base_confidence = 0.5  # 50-80% range for moderately relevant
+                confidence_range = 30
+            elif raw_score >= LOW_RELEVANCE_THRESHOLD:
+                base_confidence = 0.3  # 30-50% range for minimally relevant
+                confidence_range = 20
+            else:
+                base_confidence = 0.1  # 10-30% range for very low relevance
+                confidence_range = 20
+            
+            # Apply relative scoring within the determined range
+            if max_score > 0 and raw_score > 0:
+                relative_score = (raw_score / max_score) ** 0.5
+            else:
+                relative_score = 0
+            
+            # Position decay (less aggressive for already lower confidence)
+            position_factor = 1.0 - (i * 0.08)  # Reduced from 0.1 to 0.08
+            
+            # Final confidence combines absolute relevance with relative positioning
+            confidence = int(base_confidence * 100 + 
+                           relative_score * position_factor * confidence_range)
+            
+            # Ensure confidence stays within reasonable bounds
+            confidences.append(min(100, max(10, confidence)))
+        
+        return confidences
+    
+    confidence_scores = calculate_confidence_scores(docs)
+    
     # Send basic source information immediately after retrieval
-    for doc in docs:
+    for i, doc in enumerate(docs):
         basic_source = {
             "name": doc.metadata.get("_source", {}).get("name", "Unknown"),
-            "summary": doc.page_content[:100] + "...",  # Quick preview
+            "summary": "Loading summary...",  # Placeholder for AI summary
             "page_content": "Loading summary...",  # Placeholder
             "url": doc.metadata.get("_source", {}).get("webUrl", ""),
             "category": doc.metadata.get("_source", {}).get("category", "sharepoint"),
-            "confidence": doc.metadata.get("_score", 0),
+            "confidence": confidence_scores[i] if i < len(confidence_scores) else 30,
             "updated_at": doc.metadata.get("_source", {}).get("lastModifiedDateTime", None),
-            "loading": True  # Indicate that summary is being generated
+            "loading": True,  # Indicate that summary is being generated
         }
         current_app.logger.debug(f'Retrieved document passage from: {basic_source["name"]}')
         yield f"data: {SOURCE_TAG} {json.dumps(basic_source)}\n\n"
@@ -170,17 +330,37 @@ def ask_question(question, session_id):
     llm_with_trace, trace_id = get_llm_with_trace_id()
     current_app.logger.debug(f"Generated trace ID: {trace_id}")
     
-    # Start summary generation in background using threading
-    def generate_single_summary(page_content, trace_id):
-        """Wrapper function to run async summary generation in a thread"""
+    # Check for existing summaries and prepare summary generation
+    def generate_single_summary(doc, doc_index, trace_id):
+        """Wrapper function to check for existing summary or generate new one"""
         import asyncio
-        import time
+        import logging
         
+        # Set up logging for the thread (can't use current_app.logger in threads)
+        logger = logging.getLogger(__name__)
+        
+        # First check if summary already exists
+        doc_id = doc.metadata.get("_id")
+        if doc_id:
+            existing_summary = get_document_summary(INDEX, doc_id)
+            if existing_summary:
+                logger.debug(f"Using existing summary for document {doc_id}")
+                return existing_summary
+        
+        # Generate new summary if none exists
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
             # Run the async function
-            result = loop.run_until_complete(generate_doc_summary(page_content, trace_id))
+            result = loop.run_until_complete(generate_doc_summary(doc.page_content, trace_id))
+            
+            # Save the summary back to Elasticsearch if we have a doc_id
+            if doc_id and result and result != "Summary generation failed":
+                success = update_document_summary(INDEX, doc_id, result)
+                if success:
+                    logger.debug(f"Saved summary for document {doc_id}")
+                else:
+                    logger.warning(f"Failed to save summary for document {doc_id}")
             
             # Wait a bit for any pending tasks to complete
             pending_tasks = asyncio.all_tasks(loop)
@@ -189,7 +369,7 @@ def ask_question(question, session_id):
             
             return result
         except Exception as e:
-            current_app.logger.error(f"Summary generation error: {e}")
+            logger.error(f"Summary generation error: {e}")
             return "Summary generation failed"
         finally:
             # Give the loop a moment to clean up
@@ -211,7 +391,7 @@ def ask_question(question, session_id):
     # Start summary generation in parallel threads
     executor = ThreadPoolExecutor(max_workers=min(len(docs), 5))
     summary_futures = {
-        executor.submit(generate_single_summary, doc.page_content, trace_id): i 
+        executor.submit(generate_single_summary, doc, i, trace_id): i 
         for i, doc in enumerate(docs)
     }
 
@@ -254,11 +434,11 @@ def ask_question(question, session_id):
         for i, (doc, summary) in enumerate(zip(docs, summaries)):
             enhanced_source = {
                 "name": doc.metadata.get("_source", {}).get("name", "Unknown"),
-                "summary": doc.page_content[:100] + "...",
+                "summary": summary if summary else "Summary generation failed",  # AI summary
                 "page_content": summary if summary else "Summary generation failed",
                 "url": doc.metadata.get("_source", {}).get("webUrl", ""),
                 "category": doc.metadata.get("_source", {}).get("category", "sharepoint"),
-                "confidence": doc.metadata.get("_score", 0),
+                "confidence": confidence_scores[i] if i < len(confidence_scores) else 30,
                 "updated_at": doc.metadata.get("_source", {}).get("lastModifiedDateTime", None),
                 "loading": False,  # Summary is ready
                 "enhanced": True,   # Indicate this is an enhanced version
@@ -269,14 +449,14 @@ def ask_question(question, session_id):
     except Exception as e:
         current_app.logger.error(f"Summary processing failed: {e}")
         # Send error state for sources
-        for doc in docs:
+        for i, doc in enumerate(docs):
             error_source = {
                 "name": doc.metadata.get("_source", {}).get("name", "Unknown"),
                 "summary": doc.page_content[:100] + "...",
                 "page_content": "Summary generation failed",
                 "url": doc.metadata.get("_source", {}).get("webUrl", ""),
                 "category": doc.metadata.get("_source", {}).get("category", "sharepoint"),
-                "confidence": doc.metadata.get("_score", 0),
+                "confidence": confidence_scores[i] if i < len(confidence_scores) else 30,
                 "updated_at": doc.metadata.get("_source", {}).get("lastModifiedDateTime", None),
                 "loading": False,
                 "error": True

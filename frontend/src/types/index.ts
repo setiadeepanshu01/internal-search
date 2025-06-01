@@ -24,7 +24,7 @@ export interface Result {
 
 export type SourceType = {
   name: string
-  summary: string[]
+  summary: string[] | string
   url: string
   icon: string
   updated_at?: string | null

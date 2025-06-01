@@ -9,6 +9,7 @@ export type SourceProps = {
   loading?: boolean
   enhanced?: boolean
   error?: boolean
+  summary?: string
   onSourceClick: (sourceName: string) => void
 }
 
@@ -19,6 +20,7 @@ export const SourceItem: React.FC<SourceProps> = ({
   loading = false,
   enhanced = false,
   error = false,
+  summary,
   onSourceClick,
 }) => {
   const getStateStyles = () => {
@@ -53,6 +55,11 @@ export const SourceItem: React.FC<SourceProps> = ({
         <span className="text-xs text-zinc-400 font-normal">
           Confidence: {confidence.toFixed(1)}%
         </span>
+      )}
+      {summary && summary !== "Loading summary..." && (
+        <div className="text-xs text-zinc-600 mt-2 leading-relaxed">
+          {summary}
+        </div>
       )}
       {loading && (
         <span className="text-xs font-normal opacity-75">

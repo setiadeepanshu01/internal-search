@@ -49,22 +49,27 @@ const globalSlice = createSlice({
         rootSource.enhanced = source.enhanced ?? false
         rootSource.error = source.error ?? false
         
-        // Update summary - replace loading placeholder or add new summary
+        // Update summary - handle both string and string[] types
         if (source.summary) {
+          // Ensure rootSource.summary is always an array for processing
+          const currentSummary = Array.isArray(rootSource.summary) ? rootSource.summary : [rootSource.summary]
+          
           if (source.summary === "Loading summary...") {
             // Don't add loading placeholder if we already have real content
-            if (!rootSource.summary.some(s => s !== "Loading summary...")) {
-              if (!rootSource.summary.includes("Loading summary...")) {
-                rootSource.summary = [...rootSource.summary, source.summary]
+            if (!currentSummary.some(s => s !== "Loading summary...")) {
+              if (!currentSummary.includes("Loading summary...")) {
+                rootSource.summary = [...currentSummary, source.summary]
               }
             }
           } else {
             // Replace loading placeholder with actual summary, or add if no placeholder
-            const loadingIndex = rootSource.summary.indexOf("Loading summary...")
+            const loadingIndex = currentSummary.indexOf("Loading summary...")
             if (loadingIndex !== -1) {
-              rootSource.summary[loadingIndex] = source.summary
-            } else if (!rootSource.summary.includes(source.summary)) {
-              rootSource.summary = [...rootSource.summary, source.summary]
+              const newSummary = [...currentSummary]
+              newSummary[loadingIndex] = source.summary
+              rootSource.summary = newSummary
+            } else if (!currentSummary.includes(source.summary)) {
+              rootSource.summary = [...currentSummary, source.summary]
             }
           }
         }
@@ -77,7 +82,7 @@ const globalSlice = createSlice({
         // Create new source
         state.sources.push({ 
           ...source, 
-          summary: [source.summary],
+          summary: source.summary,
           loading: source.loading ?? false,
           enhanced: source.enhanced ?? false,
           error: source.error ?? false
@@ -241,6 +246,7 @@ export const thunkActions = {
                   const parsedSource: {
                     name: string
                     page_content: string
+                    summary?: string
                     url?: string
                     category?: string
                     updated_at?: string | null
@@ -250,13 +256,14 @@ export const thunkActions = {
                     error?: boolean
                   } = JSON.parse(source.replaceAll('\n', ''))
 
-                  if (parsedSource.page_content && parsedSource.name) {
+                  if ((parsedSource.page_content || parsedSource.summary) && parsedSource.name) {
                     dispatch(
                       actions.addSource({
                         source: {
                           name: parsedSource.name,
                           url: parsedSource.url,
-                          summary: parsedSource.page_content,
+                          summary: parsedSource.summary || parsedSource.page_content,
+                          page_content: parsedSource.page_content,
                           icon: parsedSource.category,
                           updated_at: parsedSource.updated_at,
                           confidence: parsedSource.confidence,
