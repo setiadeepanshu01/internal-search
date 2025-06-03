@@ -466,31 +466,48 @@ def ask_question(question, session_id):
                 else:
                     logger.warning(f"Failed to save summary for document {doc_id}")
             
-            # Wait a bit for any pending tasks to complete
-            pending_tasks = asyncio.all_tasks(loop)
-            if pending_tasks:
-                loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
-            
             return result
         except Exception as e:
             logger.error(f"Summary generation error: {e}")
             return "Summary generation failed"
         finally:
-            # Give the loop a moment to clean up
+            # Proper async cleanup to prevent "Event loop is closed" errors
             try:
-                # Cancel any remaining tasks
+                # Get all remaining tasks
                 pending_tasks = asyncio.all_tasks(loop)
-                for task in pending_tasks:
-                    task.cancel()
                 
-                # Run one more time to let cancellations process
                 if pending_tasks:
-                    loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+                    # Cancel all pending tasks
+                    for task in pending_tasks:
+                        if not task.done():
+                            task.cancel()
                     
-            except Exception:
-                pass  # Ignore cleanup errors
+                    # Wait for cancellations to complete with timeout
+                    try:
+                        loop.run_until_complete(
+                            asyncio.wait_for(
+                                asyncio.gather(*pending_tasks, return_exceptions=True),
+                                timeout=2.0
+                            )
+                        )
+                    except asyncio.TimeoutError:
+                        logger.debug("Timeout waiting for task cancellation")
+                    except Exception:
+                        pass  # Ignore cleanup errors
+                
+                # Additional cleanup for httpx connections
+                try:
+                    # Give the loop one more chance to process any final cleanup
+                    loop.run_until_complete(asyncio.sleep(0.1))
+                except Exception:
+                    pass
+                    
+            except Exception as cleanup_error:
+                logger.debug(f"Loop cleanup warning (non-critical): {cleanup_error}")
             finally:
-                loop.close()
+                # Close the loop
+                if not loop.is_closed():
+                    loop.close()
 
     # Start summary generation in parallel threads
     executor = ThreadPoolExecutor(max_workers=min(len(docs), 5))
