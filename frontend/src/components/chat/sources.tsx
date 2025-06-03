@@ -19,9 +19,9 @@ export const Sources: React.FC<SourcesProps> = ({
         )}
 
         <div className="flex space-x-2 flex-wrap">
-          {sources.map((source) => (
+          {sources.map((source, index) => (
             <SourceItem
-              key={source.name}
+              key={source.url || `${source.name}-${index}`}
               name={source.name}
               icon={source.icon}
               confidence={source.confidence}

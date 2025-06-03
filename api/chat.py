@@ -50,11 +50,25 @@ def bm25_query(search_query: str) -> Dict:
         "query": {
             "bool": {
                 "must": [{
-                    "exists": {
-                        "field": text_field
+                    "bool": {
+                        "should": [
+                            {"exists": {"field": "body"}},
+                            {"exists": {"field": "Description"}},
+                            {"exists": {"field": "CanvasContent1"}}
+                        ],
+                        "minimum_should_match": 1
                     }
                 }],
                 "should": [
+                    # Title exact match (highest priority for SharePoint pages)
+                    {
+                        "match": {
+                            "Title": {
+                                "query": search_query,
+                                "boost": 3.0
+                            }
+                        }
+                    },
                     # Phrase search for better relevance
                     {
                         "match_phrase": {
@@ -99,7 +113,8 @@ def bm25_query(search_query: str) -> Dict:
                         "match": {
                             "name": {
                                 "query": search_query,
-                                "boost": 2.5
+                                "boost": 2.5,
+                                "fuzziness": "AUTO"
                             }
                         }
                     },
@@ -118,6 +133,46 @@ def bm25_query(search_query: str) -> Dict:
                             "parentReference.path": {
                                 "query": search_query,
                                 "boost": 1.5
+                            }
+                        }
+                    },
+                    # Description field search
+                    {
+                        "match": {
+                            "Description": {
+                                "query": search_query,
+                                "boost": 2.0,
+                                "minimum_should_match": "2<75%"
+                            }
+                        }
+                    },
+                    # Description phrase search for better relevance
+                    {
+                        "match_phrase": {
+                            "Description": {
+                                "query": search_query,
+                                "boost": 2.5,
+                                "slop": 1
+                            }
+                        }
+                    },
+                    # CanvasContent1 field search
+                    {
+                        "match": {
+                            "CanvasContent1": {
+                                "query": search_query,
+                                "boost": 1.0,
+                                "minimum_should_match": "2<75%"
+                            }
+                        }
+                    },
+                    # CanvasContent1 phrase search
+                    {
+                        "match_phrase": {
+                            "CanvasContent1": {
+                                "query": search_query,
+                                "boost": 2.0,
+                                "slop": 1
                             }
                         }
                     }
@@ -152,7 +207,25 @@ def bm25_query(search_query: str) -> Dict:
                                     }
                                 }
                             },
-                            # Multi-match with cross_fields (only existing fields)
+                            # Phrase match in Description
+                            {
+                                "match_phrase": {
+                                    "Description": {
+                                        "query": search_query,
+                                        "boost": 2.5
+                                    }
+                                }
+                            },
+                            # Phrase match in CanvasContent1
+                            {
+                                "match_phrase": {
+                                    "CanvasContent1": {
+                                        "query": search_query,
+                                        "boost": 2.0
+                                    }
+                                }
+                            },
+                            # Multi-match with cross_fields (including new fields)
                             {
                                 "multi_match": {
                                     "query": search_query,
@@ -164,7 +237,9 @@ def bm25_query(search_query: str) -> Dict:
                                         "summary.stem^2.5",
                                         "body^1",
                                         "body.stem^1.5",
-                                        "parentReference.path^1.5"
+                                        "parentReference.path^1.5",
+                                        "Description^2",
+                                        "CanvasContent1^1"
                                     ],
                                     "operator": "or",
                                     "minimum_should_match": "75%"
@@ -243,15 +318,54 @@ def ask_question(question, session_id):
     current_app.logger.debug("Condensed question: %s", condensed_question)
     current_app.logger.debug("Question: %s", question)
 
-    bm25_retriever = ElasticsearchRetriever(
-            index_name=INDEX,
-            body_func=bm25_query,
-            es_client=elasticsearch_client,
-            content_field=text_field,
-        )
+    # Custom search function to handle multiple content fields
+    def custom_search(query: str):
+        search_body = bm25_query(query)
+        search_body["_source"] = True
+        
+        try:
+            response = elasticsearch_client.search(
+                index=INDEX,
+                body=search_body
+            )
+            
+            docs = []
+            seen_ids = set()
+            for hit in response["hits"]["hits"]:
+                doc_id = hit["_id"]
+                
+                # Skip if we've already processed this document
+                if doc_id in seen_ids:
+                    continue
+                seen_ids.add(doc_id)
+                
+                source = hit["_source"]
+                
+                # Extract content from the first available field (simplified approach)
+                page_content = (
+                    source.get("body") or 
+                    source.get("CanvasContent1") or 
+                    source.get("Description") or 
+                    source.get("name", "No content available")
+                )
+                
+                doc = Document(
+                    page_content=page_content,
+                    metadata={
+                        "_score": hit["_score"],
+                        "_id": hit["_id"],
+                        "_source": source
+                    }
+                )
+                docs.append(doc)
+            
+            return docs
+        except Exception as e:
+            current_app.logger.error(f"Custom search failed: {e}")
+            raise e
 
     try:
-        docs = bm25_retriever.invoke(condensed_question)
+        docs = custom_search(condensed_question)
         current_app.logger.debug("Retrieved %s documents", len(docs))
     except Exception as e:
         current_app.logger.error(f"Elasticsearch search failed: {e}")
@@ -311,20 +425,10 @@ def ask_question(question, session_id):
     
     confidence_scores = calculate_confidence_scores(docs)
     
-    # Send basic source information immediately after retrieval
+    # Log retrieved documents for debugging
     for i, doc in enumerate(docs):
-        basic_source = {
-            "name": doc.metadata.get("_source", {}).get("name", "Unknown"),
-            "summary": "Loading summary...",  # Placeholder for AI summary
-            "page_content": "Loading summary...",  # Placeholder
-            "url": doc.metadata.get("_source", {}).get("webUrl", ""),
-            "category": doc.metadata.get("_source", {}).get("category", "sharepoint"),
-            "confidence": confidence_scores[i] if i < len(confidence_scores) else 30,
-            "updated_at": doc.metadata.get("_source", {}).get("lastModifiedDateTime", None),
-            "loading": True,  # Indicate that summary is being generated
-        }
-        current_app.logger.debug(f'Retrieved document passage from: {basic_source["name"]}')
-        yield f"data: {SOURCE_TAG} {json.dumps(basic_source)}\n\n"
+        doc_name = doc.metadata.get("_source", {}).get("name", "Unknown")
+        current_app.logger.debug(f'Retrieved document passage from: {doc_name}')
 
     # Get LLM with trace ID for feedback tracking
     llm_with_trace, trace_id = get_llm_with_trace_id()
@@ -431,19 +535,33 @@ def ask_question(question, session_id):
                 summaries[summary_futures[future]] = "Summary generation failed"
         
         # Send enhanced source information with summaries
+        current_app.logger.debug(f"Sending {len(docs)} enhanced source results")
         for i, (doc, summary) in enumerate(zip(docs, summaries)):
+            # Get proper document name (prefer Title for SharePoint pages, then name)
+            source_data = doc.metadata.get("_source", {})
+            doc_name = (
+                source_data.get("Title") or 
+                source_data.get("name") or 
+                "Unknown Document"
+            )
+            doc_id = doc.metadata.get("_id")
+            doc_url = source_data.get("webUrl", "")
+            
+
+            
             enhanced_source = {
-                "name": doc.metadata.get("_source", {}).get("name", "Unknown"),
+                "name": doc_name,
                 "summary": summary if summary else "Summary generation failed",  # AI summary
                 "page_content": summary if summary else "Summary generation failed",
-                "url": doc.metadata.get("_source", {}).get("webUrl", ""),
-                "category": doc.metadata.get("_source", {}).get("category", "sharepoint"),
+                "url": doc_url,
+                "category": source_data.get("category", "sharepoint"),
                 "confidence": confidence_scores[i] if i < len(confidence_scores) else 30,
-                "updated_at": doc.metadata.get("_source", {}).get("lastModifiedDateTime", None),
+                "updated_at": source_data.get("lastModifiedDateTime", None),
                 "loading": False,  # Summary is ready
                 "enhanced": True,   # Indicate this is an enhanced version
                 "error": summary == "Summary generation failed" if summary else True
             }
+
             yield f"data: {SOURCE_TAG} {json.dumps(enhanced_source)}\n\n"
             
     except Exception as e:

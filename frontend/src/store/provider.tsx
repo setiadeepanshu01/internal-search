@@ -51,18 +51,18 @@ const globalSlice = createSlice({
         
         // Update summary - handle both string and string[] types
         if (source.summary) {
-          // Ensure rootSource.summary is always an array for processing
-          const currentSummary = Array.isArray(rootSource.summary) ? rootSource.summary : [rootSource.summary]
-          
           if (source.summary === "Loading summary...") {
-            // Don't add loading placeholder if we already have real content
+            // Only set loading placeholder if we don't have real content yet
+            const currentSummary = Array.isArray(rootSource.summary) ? rootSource.summary : [rootSource.summary]
             if (!currentSummary.some(s => s !== "Loading summary...")) {
-              if (!currentSummary.includes("Loading summary...")) {
-                rootSource.summary = [...currentSummary, source.summary]
-              }
+              rootSource.summary = "Loading summary..."
             }
+          } else if (source.enhanced) {
+            // For enhanced sources, replace the summary completely (single final summary)
+            rootSource.summary = source.summary
           } else {
-            // Replace loading placeholder with actual summary, or add if no placeholder
+            // For non-enhanced sources, handle as array (legacy behavior)
+            const currentSummary = Array.isArray(rootSource.summary) ? rootSource.summary : [rootSource.summary]
             const loadingIndex = currentSummary.indexOf("Loading summary...")
             if (loadingIndex !== -1) {
               const newSummary = [...currentSummary]
