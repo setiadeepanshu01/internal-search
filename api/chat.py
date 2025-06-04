@@ -526,15 +526,62 @@ def ask_question(question, session_id):
     # Send trace ID for feedback tracking
     yield f"data: {TRACE_ID_TAG} {trace_id}\n\n"
 
-    # Stream the answer while summaries are being generated
+    # Stream the answer while summaries are being generated with retry logic
     answer = ""
-    for chunk in llm_with_trace.stream(qa_prompt):
-        content = chunk.content.replace(
-            "\n", "  "
-        )
-        yield f"data: {content}\n\n"
-        answer += chunk.content
-
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count <= max_retries:
+        try:
+            # Try streaming the response
+            for chunk in llm_with_trace.stream(qa_prompt):
+                content = chunk.content.replace(
+                    "\n", "  "
+                )
+                yield f"data: {content}\n\n"
+                answer += chunk.content
+            
+            # If we get here, streaming was successful
+            break
+            
+        except Exception as e:
+            retry_count += 1
+            current_app.logger.warning(f"Streaming attempt {retry_count} failed: {e}")
+            
+            # Check if it's a connection error that we should retry
+            error_msg = str(e).lower()
+            is_connection_error = any(keyword in error_msg for keyword in [
+                'connection', 'timeout', 'protocol', 'chunked', 'incomplete'
+            ])
+            
+            if retry_count <= max_retries and is_connection_error:
+                current_app.logger.info(f"Retrying streaming (attempt {retry_count}/{max_retries})")
+                # Reset answer for retry
+                if retry_count > 1:
+                    answer = ""
+                # Exponential backoff: 1s, 2s, 4s
+                import time
+                time.sleep(2 ** (retry_count - 1))
+                continue
+            else:
+                # Max retries reached or non-retryable error - fall back to non-streaming
+                current_app.logger.error(f"Streaming failed after {retry_count} attempts, falling back to non-streaming: {e}")
+                try:
+                    # Try non-streaming as fallback
+                    response = llm_with_trace.invoke(qa_prompt)
+                    answer = response.content
+                    # Send the complete answer at once
+                    content = answer.replace("\n", "  ")
+                    yield f"data: {content}\n\n"
+                    break
+                except Exception as fallback_error:
+                    current_app.logger.error(f"Non-streaming fallback also failed: {fallback_error}")
+                    # Send error message to user
+                    error_message = "I'm sorry, I'm experiencing connection issues. Please try your question again in a moment."
+                    yield f"data: {error_message}\n\n"
+                    answer = error_message
+                    break
+    
     yield f"data: {DONE_TAG}\n\n"
 
     # Wait for summaries to complete and send enhanced source information
