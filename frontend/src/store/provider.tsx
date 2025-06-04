@@ -276,17 +276,36 @@ export const thunkActions = {
                   }
                 }
               } catch (e) {
-                console.log('error', source, event.data)
+
                 console.error(e)
               }
             } else if (event.data === STREAMING_EVENTS.DONE) {
               const sources = parseSources(message)
-              dispatch(
-                actions.setMessageSource({
-                  id: conversationId,
-                  sources,
-                })
-              )
+
+              
+              // Wait a moment for all SOURCE events to be processed
+              setTimeout(() => {
+                const currentState = getState()
+
+                
+                // Match sources from SOURCES text with sources in state
+                const matchedSources = sources
+                  .map((sourceName) => {
+                    const found = currentState.sources.find((stateSource) => stateSource.name === sourceName)
+
+                    return found
+                  })
+                  .filter((source) => !!source)
+                
+
+                
+                dispatch(
+                  actions.setMessageSource({
+                    id: conversationId,
+                    sources,
+                  })
+                )
+              }, 100)
         
               dispatch(actions.setStatus({ status: AppStatus.Done }))
             } else {

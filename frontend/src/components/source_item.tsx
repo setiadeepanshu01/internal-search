@@ -26,7 +26,7 @@ export const SourceItem: React.FC<SourceProps> = ({
   const getStateStyles = () => {
     if (error) return 'border-red-300 text-red-500 hover:text-red-600 hover:border-red-500'
     if (loading) return 'border-yellow-300 text-yellow-600 hover:text-yellow-700 hover:border-yellow-500'
-    if (enhanced) return 'border-green-300 text-green-600 hover:text-green-700 hover:border-green-500'
+    if (enhanced) return 'border-blue-300 text-blue-600 hover:text-blue-700 hover:border-blue-500'
     return 'border-blue-300 text-blue-500 hover:text-blue-600 hover:border-blue-500'
   }
 

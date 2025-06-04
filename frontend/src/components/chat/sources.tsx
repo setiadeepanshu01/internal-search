@@ -28,7 +28,7 @@ export const Sources: React.FC<SourcesProps> = ({
               loading={source.loading}
               enhanced={source.enhanced}
               error={source.error}
-              summary={typeof source.summary === 'string' ? source.summary : (Array.isArray(source.summary) ? source.summary.join(' ') : undefined)}
+              // summary={typeof source.summary === 'string' ? source.summary : (Array.isArray(source.summary) ? source.summary.join(' ') : undefined)}
               onSourceClick={onSourceClick}
             />
           ))}

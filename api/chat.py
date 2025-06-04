@@ -354,7 +354,8 @@ def ask_question(question, session_id):
                     metadata={
                         "_score": hit["_score"],
                         "_id": hit["_id"],
-                        "_source": source
+                        "_source": source,
+                        "name": source.get("name", "Unknown Document")
                     }
                 )
                 docs.append(doc)

@@ -9,13 +9,8 @@
     },
     {
       "src": "mm.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "mm.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "type": "image/jpeg",
+      "sizes": "750x125"
     }
   ],
   "start_url": ".",
